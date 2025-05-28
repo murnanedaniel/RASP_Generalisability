@@ -19,24 +19,52 @@ from utils import Tokenizer, get_device, plot_length_generalization, save_result
 def load_model_and_tokenizer(checkpoint_path: str, device: torch.device):
     """Load trained model and tokenizer from checkpoint"""
     print(f"Loading model from: {checkpoint_path}")
-    checkpoint = torch.load(checkpoint_path, map_location=device)
     
-    # Load config
-    config = checkpoint['config']
+    # Use weights_only=False for PyTorch Lightning checkpoints
+    checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
     
-    # Create tokenizer
-    tokenizer = Tokenizer()
-    if 'tokenizer_state' in checkpoint:
-        tokenizer.token_to_id = checkpoint['tokenizer_state']['token_to_id']
-        tokenizer.id_to_token = checkpoint['tokenizer_state']['id_to_token']
-    
-    # Create and load model
-    model = CountingTransformer(config).to(device)
-    model.load_state_dict(checkpoint['model_state_dict'])
-    model.eval()
+    # Handle PyTorch Lightning checkpoint format
+    if 'hyper_parameters' in checkpoint:
+        # This is a Lightning checkpoint
+        print("Detected PyTorch Lightning checkpoint")
+        
+        # Get config from hyperparameters
+        config = checkpoint['hyper_parameters']['config']
+        
+        # Create tokenizer (use default since we don't save tokenizer state in Lightning)
+        from config import counting_config_flat
+        tokenizer = Tokenizer()
+        
+        # Create and load model
+        model = CountingTransformer(config).to(device)
+        model.load_state_dict(checkpoint['state_dict'])
+        model.eval()
+        
+        # Get validation accuracy if available
+        best_val_exact_match = checkpoint.get('best_val_exact_match', 'N/A')
+        
+    else:
+        # This is a regular checkpoint
+        print("Detected regular PyTorch checkpoint")
+        
+        # Load config
+        config = checkpoint['config']
+        
+        # Create tokenizer
+        tokenizer = Tokenizer()
+        if 'tokenizer_state' in checkpoint:
+            tokenizer.token_to_id = checkpoint['tokenizer_state']['token_to_id']
+            tokenizer.id_to_token = checkpoint['tokenizer_state']['id_to_token']
+        
+        # Create and load model
+        model = CountingTransformer(config).to(device)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        model.eval()
+        
+        best_val_exact_match = checkpoint.get('best_val_exact_match', 'N/A')
     
     print(f"Model loaded successfully!")
-    print(f"Best validation exact match from training: {checkpoint.get('best_val_exact_match', 'N/A')}")
+    print(f"Best validation exact match from training: {best_val_exact_match}")
     
     return model, tokenizer, config
 

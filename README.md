@@ -78,7 +78,35 @@ python train.py --config counting_config
 
 ## Length Generalization Testing
 
-### Comprehensive Evaluation Pipeline
+### Evaluation Options
+
+#### 🚀 Quick Evaluation (Recommended)
+```bash
+# Fast length generalization test on Lightning checkpoints
+python quick_evaluate.py
+```
+- **Purpose**: Quick test of length generalization performance
+- **Input**: Automatically uses best Lightning checkpoint  
+- **Output**: Clear pass/fail results for different sequence lengths
+- **Best for**: Getting immediate results after training
+
+#### 📊 Comprehensive Evaluation  
+```bash
+# Detailed analysis with visualizations
+python evaluate.py --checkpoint output/checkpoints/best-epoch=41-val_generation_exact_match=0.990.ckpt
+
+# Test specific lengths
+python evaluate.py --checkpoint your_model.ckpt --test_lengths 70,80,90,100
+
+# Full generalization suite with plots
+python evaluate.py --checkpoint your_model.ckpt --comprehensive
+```
+- **Purpose**: In-depth analysis with failure case examination and plots
+- **Input**: Works with both Lightning and regular checkpoints
+- **Output**: Detailed metrics, visualizations, and error analysis
+- **Best for**: Research analysis and paper figures
+
+### Automatic Evaluation
 
 The training script automatically performs length generalization testing on completion:
 
@@ -94,15 +122,6 @@ Length  90: 0.890 (89/100)  ✅ Decent generalization
 Length 100: 0.850 (85/100)  ⚠️  Degrading
 Length 120: 0.700 (70/100)  ⚠️  Significant drop
 Length 150: 0.500 (50/100)  ❌ Poor generalization
-```
-
-### Manual Evaluation
-```bash
-# Test specific lengths
-python evaluate.py --model_path output/checkpoints/best.ckpt --test_lengths 70,80,90,100
-
-# Full generalization suite
-python evaluate.py --model_path output/checkpoints/best.ckpt --comprehensive
 ```
 
 ## Features
@@ -123,7 +142,8 @@ python evaluate.py --model_path output/checkpoints/best.ckpt --comprehensive
 ├── train.py               # Legacy training script (still functional)
 ├── model.py               # Transformer architecture
 ├── data_generation.py     # Dataset creation (both distributions)
-├── evaluate.py            # Evaluation utilities
+├── quick_evaluate.py      # Quick length generalization testing ⭐
+├── evaluate.py            # Comprehensive evaluation with analysis
 ├── config.py              # Configuration with dataset options ⭐
 ├── utils.py               # Utilities
 ├── data/                  # Biased distribution data
