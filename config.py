@@ -21,7 +21,9 @@ class ModelConfig:
 @dataclasses.dataclass
 class TrainingConfig:
     """Training configuration"""
-    # Data
+    # Data paths and dataset selection
+    data_dir: str = "data"  # Default data directory
+    dataset_type: str = "biased"  # "biased" or "flat" distribution
     max_train_length: int = 60  # Maximum training sequence length
     num_train_samples: int = 50000
     num_val_samples: int = 5000
@@ -65,4 +67,14 @@ class Config:
     task: CountingTaskConfig = dataclasses.field(default_factory=CountingTaskConfig)
 
 # Default configuration
-counting_config = Config() 
+counting_config = Config()
+
+# Configuration for biased length distribution (original)
+counting_config_biased = Config()
+counting_config_biased.training.data_dir = "data"
+counting_config_biased.training.dataset_type = "biased"
+
+# Configuration for flat length distribution  
+counting_config_flat = Config()
+counting_config_flat.training.data_dir = "data_flat"
+counting_config_flat.training.dataset_type = "flat" 

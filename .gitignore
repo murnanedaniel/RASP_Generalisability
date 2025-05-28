@@ -38,7 +38,7 @@ ehthumbs.db
 # Logging and experiment tracking
 wandb/
 logs/
-lightning_logs/ # PyTorch Lightning default logs
+**/lightning_logs/
 *.log
 
 # Data and Outputs

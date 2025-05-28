@@ -40,6 +40,102 @@ def load_model_and_tokenizer(checkpoint_path: str, device: torch.device):
     
     return model, tokenizer, config
 
+def evaluate_generation(model: CountingTransformer, samples: List[dict], 
+                       tokenizer: Tokenizer, device: torch.device, 
+                       max_new_tokens: int = 100, show_examples: bool = False) -> Dict[str, float]:
+    """
+    Evaluate model using generation (more realistic evaluation)
+    
+    Args:
+        model: Model to evaluate
+        samples: List of samples to evaluate on
+        tokenizer: Tokenizer instance
+        device: Device to run on
+        max_new_tokens: Maximum tokens to generate
+        show_examples: Whether to print example generations
+        
+    Returns:
+        Dictionary with evaluation metrics and examples
+    """
+    model.eval()
+    
+    correct_sequences = 0
+    total_sequences = len(samples)
+    examples = []
+    
+    with torch.no_grad():
+        for i, sample in enumerate(tqdm(samples, desc="Generation eval", leave=False)):
+            sequence = sample['sequence']
+            tokens = sequence.split()
+            
+            # Find the separator '>' to split prompt and target
+            separator_idx = tokens.index('>')
+            prompt_tokens = tokens[:separator_idx + 1]  # Include the '>'
+            target_tokens = tokens[separator_idx + 1:]   # Exclude the '>'
+            
+            # Encode prompt
+            prompt = " ".join(prompt_tokens)
+            prompt_ids = torch.tensor([tokenizer.encode_sequence(prompt)], device=device)
+            
+            # Generate
+            generated_ids = model.generate(
+                prompt_ids, 
+                max_new_tokens=max_new_tokens,
+                temperature=1.0,  # Use sampling for more realistic evaluation
+                eos_token_id=tokenizer.eos_token_id
+            )
+            
+            # Extract generated part
+            generated_part = generated_ids[0][len(prompt_ids[0]):]
+            generated_tokens = tokenizer.decode(generated_part.cpu().tolist())
+            
+            # Remove EoS if present and clean up
+            generated_text = " ".join(generated_tokens)
+            if "EoS" in generated_text:
+                generated_text = generated_text.split("EoS")[0].strip()
+            
+            target_text = " ".join(target_tokens[:-1])  # Remove EoS from target
+            
+            # Check if generated matches target
+            is_correct = generated_text.strip() == target_text.strip()
+            if is_correct:
+                correct_sequences += 1
+            
+            # Collect examples for the first few samples or if showing examples
+            if show_examples and (i < 5 or (i < 20 and not is_correct)):
+                examples.append({
+                    'prompt': prompt,
+                    'target': target_text,
+                    'generated': generated_text.strip(),
+                    'correct': is_correct,
+                    'full_sequence': sequence
+                })
+    
+    # Print examples if requested
+    if show_examples and examples:
+        print(f"\n📝 Generation Examples (showing first few):")
+        print("-" * 80)
+        for i, ex in enumerate(examples[:8]):  # Show up to 8 examples
+            status = "✅" if ex['correct'] else "❌"
+            print(f"Example {i+1} {status}")
+            print(f"  Prompt:    {ex['prompt']}")
+            print(f"  Target:    {ex['target']}")
+            print(f"  Generated: {ex['generated']}")
+            if not ex['correct']:
+                print(f"  Expected:  {ex['full_sequence']}")
+            print()
+    
+    result = {
+        'exact_match': correct_sequences / total_sequences,
+        'total_samples': total_sequences,
+        'correct_samples': correct_sequences
+    }
+    
+    if examples:
+        result['examples'] = examples[:10]  # Keep first 10 examples
+    
+    return result
+
 def evaluate_generation_detailed(model: CountingTransformer, samples: List[dict], 
                                tokenizer: Tokenizer, device: torch.device, 
                                max_new_tokens: int = 100, verbose: bool = False) -> Dict:

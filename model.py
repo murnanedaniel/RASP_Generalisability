@@ -154,7 +154,8 @@ class MultiHeadAttention(nn.Module):
                 mask = mask.unsqueeze(0).unsqueeze(0)  # [1, 1, seq_len, seq_len]
             elif mask.dim() == 3:
                 mask = mask.unsqueeze(1)  # [batch_size, 1, seq_len, seq_len]
-            scores.masked_fill_(mask == 0, -1e9)
+            # Use -1e4 instead of -1e9 to avoid half-precision overflow
+            scores.masked_fill_(mask == 0, -1e4)
         
         attention_weights = F.softmax(scores, dim=-1)
         attention_weights = self.dropout(attention_weights)

@@ -48,16 +48,18 @@ def calculate_sequence_length(start: int, end: int) -> int:
     count_length = abs(end - start) + 1
     return 4 + count_length + 1  # 5 fixed tokens + count_sequence
 
-def generate_dataset(num_samples: int, max_length: int, min_number: int = 0, 
-                    max_number: int = 50, seed: int = 42) -> List[dict]:
+def generate_dataset_flat_distribution(num_samples: int, max_length: int, min_length: int = 6, 
+                                     min_number: int = 0, seed: int = 42) -> List[dict]:
     """
-    Generate a dataset of counting sequences.
+    Generate a dataset with flat distribution of sequence lengths.
+    
+    Each length from min_length to max_length gets equal representation.
     
     Args:
-        num_samples: Number of samples to generate
-        max_length: Maximum sequence length
+        num_samples: Total number of samples to generate
+        max_length: Maximum sequence length (e.g., 60)
+        min_length: Minimum sequence length (e.g., 6 - minimum meaningful counting sequence)
         min_number: Minimum number value
-        max_number: Maximum number value
         seed: Random seed
     
     Returns:
@@ -66,34 +68,114 @@ def generate_dataset(num_samples: int, max_length: int, min_number: int = 0,
     random.seed(seed)
     samples = []
     
-    pbar = tqdm(total=num_samples, desc="Generating samples")
+    # Calculate samples per length for flat distribution
+    num_lengths = max_length - min_length + 1
+    samples_per_length = num_samples // num_lengths
+    remaining_samples = num_samples % num_lengths
     
-    while len(samples) < num_samples:
-        # Sample start and end points
-        start = random.randint(min_number, max_number)
-        end = random.randint(min_number, max_number)
-        
-        # Check if sequence length is within bounds
-        seq_length = calculate_sequence_length(start, end)
-        if seq_length > max_length:
-            continue
-        
-        # Generate sequence
-        sequence = generate_counting_sequence(start, end)
-        
-        sample = {
-            'sequence': sequence,
-            'start': start,
-            'end': end,
-            'length': seq_length,
-            'count_length': abs(end - start) + 1
-        }
-        
-        samples.append(sample)
-        pbar.update(1)
+    print(f"Generating flat distribution: {num_lengths} lengths, ~{samples_per_length} samples each")
     
-    pbar.close()
+    for target_length in range(min_length, max_length + 1):
+        # Add one extra sample to some lengths to handle remainder
+        current_samples_needed = samples_per_length
+        if target_length - min_length < remaining_samples:
+            current_samples_needed += 1
+        
+        length_samples = []
+        attempts = 0
+        max_attempts = current_samples_needed * 50  # Be generous with attempts
+        
+        while len(length_samples) < current_samples_needed and attempts < max_attempts:
+            attempts += 1
+            
+            # Calculate required count length: target_length = 5 + count_length  
+            # (SoS + start + > + count + EoS = 5 + count_length)
+            desired_count_length = target_length - 5
+            
+            if desired_count_length <= 0:
+                continue
+            
+            # Dynamically adjust number range to ensure we can create the desired length
+            # We need enough range to count from start to end
+            required_range = desired_count_length + 20  # Add buffer
+            adjusted_max_number = max(min_number + required_range, 100)
+            
+            # Sample start point
+            max_start = adjusted_max_number - desired_count_length
+            if max_start < min_number:
+                continue
+                
+            start = random.randint(min_number, max_start)
+            
+            # Randomly choose to count up or down
+            if random.random() < 0.5:
+                # Count up: start -> start + (desired_count_length - 1)
+                end = start + desired_count_length - 1
+            else:
+                # Count down: start -> start - (desired_count_length - 1)
+                end = start - desired_count_length + 1
+            
+            # Ensure end is in valid range
+            if end < min_number:
+                continue
+            
+            # Verify the actual sequence length matches target
+            actual_length = calculate_sequence_length(start, end)
+            if actual_length != target_length:
+                continue
+            
+            # Generate the sequence
+            sequence = generate_counting_sequence(start, end)
+            
+            sample = {
+                'sequence': sequence,
+                'start': start,
+                'end': end,
+                'length': actual_length,
+                'count_length': abs(end - start) + 1
+            }
+            
+            length_samples.append(sample)
+        
+        samples.extend(length_samples)
+        success_rate = len(length_samples) / attempts * 100 if attempts > 0 else 0
+        print(f"Length {target_length:2d}: generated {len(length_samples):3d}/{current_samples_needed:3d} samples "
+              f"(success rate: {success_rate:.1f}%)")
+        
+        if len(length_samples) < current_samples_needed:
+            print(f"  ⚠️  Warning: Could not generate enough samples for length {target_length}")
+    
+    # Shuffle the final dataset
+    random.shuffle(samples)
+    print(f"\nGenerated {len(samples)} total samples with flat length distribution")
+    
     return samples
+
+def generate_dataset(num_samples: int, max_length: int, min_number: int = 0, 
+                    max_number: int = 50, seed: int = 42) -> List[dict]:
+    """
+    Generate a dataset of counting sequences with FLAT length distribution.
+    
+    This replaces the old random sampling approach with one that ensures
+    equal representation of all sequence lengths from 6 to max_length.
+    
+    Args:
+        num_samples: Number of samples to generate
+        max_length: Maximum sequence length
+        min_number: Minimum number value (legacy parameter, dynamically adjusted)
+        max_number: Maximum number value (legacy parameter, dynamically adjusted)
+        seed: Random seed
+    
+    Returns:
+        List of samples with sequence and metadata
+    """
+    return generate_dataset_flat_distribution(
+        num_samples=num_samples,
+        max_length=max_length,
+        min_length=6,  # Minimum meaningful counting sequence
+        min_number=min_number,
+        seed=seed
+    )
 
 def split_dataset(samples: List[dict], train_ratio: float = 0.8, 
                  val_ratio: float = 0.1) -> Tuple[List[dict], List[dict], List[dict]]:

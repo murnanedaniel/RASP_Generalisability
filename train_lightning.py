@@ -79,9 +79,9 @@ class GenerationExamplesCallback(pl.Callback):
 def main():
     parser = argparse.ArgumentParser(description="Train counting transformer with PyTorch Lightning")
     parser.add_argument("--config", type=str, default="counting_config", 
-                       help="Configuration name")
-    parser.add_argument("--data_dir", type=str, default="data",
-                       help="Data directory")
+                       help="Configuration name: counting_config, counting_config_biased, counting_config_flat")
+    parser.add_argument("--data_dir", type=str, default=None,
+                       help="Data directory (overrides config)")
     parser.add_argument("--output_dir", type=str, default="output",
                        help="Output directory")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
@@ -99,8 +99,24 @@ def main():
     # Load configuration
     if args.config == "counting_config":
         config = counting_config
+    elif args.config == "counting_config_biased":
+        from config import counting_config_biased
+        config = counting_config_biased
+        print("🔸 Using BIASED length distribution (original data)")
+    elif args.config == "counting_config_flat":
+        from config import counting_config_flat
+        config = counting_config_flat
+        print("🔸 Using FLAT length distribution (new corrected data)")
     else:
         raise ValueError(f"Unknown config: {args.config}")
+    
+    # Override data_dir if provided
+    if args.data_dir is not None:
+        config.training.data_dir = args.data_dir
+        print(f"🔸 Overriding data directory: {args.data_dir}")
+    
+    print(f"📁 Data directory: {config.training.data_dir}")
+    print(f"📊 Dataset type: {config.training.dataset_type}")
     
     # Create output directories
     os.makedirs(args.output_dir, exist_ok=True)
@@ -109,9 +125,9 @@ def main():
     
     # Load datasets
     print("Loading datasets...")
-    train_samples = load_dataset(os.path.join(args.data_dir, "train.json"))
-    val_samples = load_dataset(os.path.join(args.data_dir, "val.json"))
-    test_samples = load_dataset(os.path.join(args.data_dir, "test_length_gen.json"))
+    train_samples = load_dataset(os.path.join(config.training.data_dir, "train.json"))
+    val_samples = load_dataset(os.path.join(config.training.data_dir, "val.json"))
+    test_samples = load_dataset(os.path.join(config.training.data_dir, "test_length_gen.json"))
     
     print(f"Training samples: {len(train_samples)}")
     print(f"Validation samples: {len(val_samples)}")
@@ -151,9 +167,9 @@ def main():
         try:
             wandb_logger = WandbLogger(
                 project=config.training.wandb_project,
-                name=f"counting-transformer-lightning-{args.seed}",
+                name=f"counting-transformer-{config.training.dataset_type}-{args.seed}",
                 save_dir=args.output_dir,
-                version=f"seed-{args.seed}"
+                version=f"{config.training.dataset_type}-seed-{args.seed}"
             )
             loggers.append(wandb_logger)
             print("✅ Wandb logging enabled")
