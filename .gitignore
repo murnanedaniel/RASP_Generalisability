@@ -1,0 +1,66 @@
+# Local development environment
+env/
+venv/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+.env
+
+# Python specific
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+wheels/
+*.whl
+
+# IDE and editor files
+.vscode/
+.idea/
+*.project
+*.pydevproject
+*.sublime-workspace
+*.sublime-project
+*.swp
+*~
+*.bak
+*.tmp
+
+# OS specific
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# Logging and experiment tracking
+wandb/
+logs/
+lightning_logs/ # PyTorch Lightning default logs
+*.log
+
+# Data and Outputs
+data/
+test_data/
+output/
+checkpoints/
+
+# Specific large file types (often outputs or downloaded models)
+*.pt
+*.pth
+*.bin
+# Consider adding other large file types if relevant, e.g., *.onnx, *.pb
+
+# Test artifacts
+.coverage
+coverage.xml
+htmlcov/
+.pytest_cache/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# MyPy cache
+.mypy_cache/
